@@ -20,6 +20,8 @@ Here are some of the built in ways to interact with a repository.
  - <a href="#findby-array-criteria-array-orderby-limit-offset">findBy</a>
  - <a href="#findoneby-array-criteria-array-orderby">findOneBy</a>
  - <a href="#findall">findAll</a>
+ - <a href="#findwith">findWith</a>
+ - <a href="#findOnewith">findWith</a>
  - <a href="#save-entity">save</a>
  - <a href="#delete-entity">delete</a>
 
@@ -133,7 +135,6 @@ $user = $repo->findOneBy(['username' => $postedUser, 'password'=> $passHash]);
 $newestUser = $repo->findOneBy([], ['id', 'DESC']);
 ```
 
-
 ---
 
 ### findAll()
@@ -146,6 +147,62 @@ $users = $repo->findAll();
 The `findAll` method returns a collection of all the applicable entities
 unfiltered from the storage layer. In SQL terms it is identical to performing a
 `SELECT * from tablename`.
+
+---
+
+### findWith(QueryBuilder $qb)
+
+```
+$repo = $app['storage']->getRepository('entries');
+$qb = $repo->createQueryBuilder('e')
+    ->join('e', 'bolt_relations', 'r', '
+        r.from_contenttype = "entries" AND
+        r.from_id = e.id AND
+        r.to_contenttype = "categories"
+    ')
+    ->join('r', 'categories', 'c', '
+        c.id = r.to_id AND
+        c.status = "published"
+    ')
+    ->andWhere('e.status = :status')->setParameter('status', 'published')
+    ->andWhere('c.slug = :cslug')->setParameter('cslug', $categorySlug, \PDO::PARAM_STR)
+    ->addOrderBy('e.datepublish', 'desc')
+    ->setMaxResults($limit)
+;
+
+$entries = $repo->findWith($qb);
+```
+
+This method lets you fetch data with more complex query previously builded with QueryBuilder and it automatically hydrates results to fulfilled Entities.
+
+---
+
+### findOneWith(QueryBuilder $qb)
+
+This method works identically to the `findWith` method above but will return a
+single Entity object rather than a collection. This is most suited for when you
+want to guarantee a single result, for example:
+
+```
+$repo = $app['storage']->getRepository('entries');
+$qb = $repo->createQueryBuilder('e')
+    ->join('e', 'bolt_relations', 'r', '
+        r.from_contenttype = "entries" AND
+        r.from_id = e.id AND
+        r.to_contenttype = "categories"
+    ')
+    ->join('r', 'categories', 'c', '
+        c.id = r.to_id AND
+        c.status = "published"
+    ')
+    ->andWhere('e.status = :status')->setParameter('status', 'published')
+    ->andWhere('c.slug = :cslug')->setParameter('cslug', $categorySlug, \PDO::PARAM_STR)
+    ->addOrderBy('e.datepublish', 'desc')
+    ->setMaxResults(1)
+;
+
+$entry = $repo->findOneWith($qb);
+```
 
 ---
 
